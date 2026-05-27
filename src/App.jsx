@@ -791,7 +791,7 @@ function DonateSection() {
   // API Integration Handler
   const handleDonationSubmit = async () => {
     try {
-      await fetch('http://localhost:5000/api/donations', {
+      await fetch('https://veersetu.onrender.com/api/donations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1364,21 +1364,21 @@ export default function App() {
   useEffect(() => {
     const fetchHeroes = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/heroes');
+        const res = await fetch('https://veersetu.onrender.com/api/heroes');
         if(res.ok) setDbHeroes(await res.json());
       } catch(e) { console.error("Heroes fetch failed", e); }
     };
     
     const fetchDonations = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/donations/live');
+        const res = await fetch('https://veersetu.onrender.com/api/donations/live');
         if(res.ok) setLiveDonations(await res.json());
       } catch(e) { console.error("Donations fetch failed", e); }
     };
 
     const fetchApps = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/admin/applications');
+        const res = await fetch('https://veersetu.onrender.com/api/admin/applications');
         if(res.ok) setPendingApps(await res.json());
       } catch(e) { console.error("Applications fetch failed", e); }
     };
