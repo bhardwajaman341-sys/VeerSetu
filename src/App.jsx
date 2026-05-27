@@ -477,25 +477,6 @@ const GlobalStyle = () => (
 );
 
 // ── Data ───────────────────────────────────────────────────────────────────
-const HEROES = [
-  { id:1, initials:"RS", name:"Late Naib Subedar Rajendra Singh", rank:"Naib Subedar", unit:"4 Rajput Regiment", state:"Rajasthan", status:"Martyred", need:"Child Education", goal:85000, raised:61200, urgent:true, family:"Wife + 2 children" },
-  { id:2, initials:"PK", name:"Hav. Pradeep Kumar (Retd.)", rank:"Havildar (Veteran)", unit:"Bihar Regiment", state:"Bihar", status:"Veteran", need:"Medical Support", goal:60000, raised:47800, urgent:false, family:"Wife, mother" },
-  { id:3, initials:"AM", name:"Cadet Arjun Mehta (NDA, Injured)", rank:"Cadet", unit:"National Defence Academy", state:"Maharashtra", status:"Training Casualty", need:"Rehabilitation", goal:40000, raised:18500, urgent:true, family:"Parents", training:true },
-];
-
-const LIVE_FEED = [
-  { donor:"Priya T.", amount:2500, family:"Rajendra Singh Family", time:"2m ago", type:"education" },
-  { donor:"Rahul M.", amount:5000, family:"Pradeep Kumar Family", time:"8m ago", type:"medical" },
-  { donor:"Anonymous", amount:1000, family:"Arjun Mehta Rehab Fund", time:"15m ago", type:"training" },
-  { donor:"Sunita D.", amount:10000, family:"Rajendra Singh Family", time:"22m ago", type:"general" },
-];
-
-const PENDING_VERIFICATIONS = [
-  { id:"VS-0041", name:"Smt. Kamla Devi", type:"Martyr Family", state:"UP", docs:"3/4", status:"pending" },
-  { id:"VS-0042", name:"Ex-Hav. Mohan Rao", type:"Veteran", state:"AP", docs:"4/4", status:"approved" },
-  { id:"VS-0043", name:"Cadet Simran Kaur", type:"Training Casualty", state:"Punjab", docs:"2/4", status:"flagged" },
-];
-
 const DON_TYPES = [
   { icon:"🎓", title:"Education Sponsor", sub:"Support children's schooling", id:"education" },
   { icon:"🏥", title:"Medical Aid", sub:"Fund treatments & medicine", id:"medical" },
@@ -685,10 +666,10 @@ function StatsRow() {
   );
 }
 
-function FamiliesSection({ setPage }) {
+function FamiliesSection({ setPage, heroes }) {
   const [filter, setFilter] = useState("all");
   const categories = ["all","Martyred","Veteran","Training Casualty"];
-  const filtered = filter === "all" ? HEROES : HEROES.filter(h => h.status === filter);
+  const filtered = filter === "all" ? heroes : heroes.filter(h => h.status === filter);
   return (
     <section className="section" id="families">
       <div className="section-tag fade-up">Verified Profiles</div>
@@ -703,7 +684,7 @@ function FamiliesSection({ setPage }) {
       </div>
       <div className="grid-3">
         {filtered.map((h,i) => (
-          <div className={`card hero-card fade-up fade-up-${i+1}`} key={h.id}>
+          <div className={`card hero-card fade-up fade-up-${i+1}`} key={h._id || h.id}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
               <div className="hero-card-img">{h.initials}</div>
               <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
@@ -730,13 +711,16 @@ function FamiliesSection({ setPage }) {
             </button>
           </div>
         ))}
+        {filtered.length === 0 && (
+          <div style={{color:"var(--muted)", fontStyle:"italic", paddingTop:20}}>No families found for this category.</div>
+        )}
       </div>
     </section>
   );
 }
 
-function EmergencySection({ setPage }) {
-  const cases = HEROES.filter(h => h.urgent);
+function EmergencySection({ setPage, heroes }) {
+  const cases = heroes.filter(h => h.urgent);
   return (
     <section className="section" style={{background:"rgba(220,50,50,.03)", borderTop:"1px solid var(--border)"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
@@ -747,7 +731,7 @@ function EmergencySection({ setPage }) {
       <p className="section-sub mb-32">AI-flagged urgent cases based on medical, education, and financial distress signals.</p>
       <div className="grid-3">
         {cases.map(h => (
-          <div className="card" key={h.id} style={{borderColor:"rgba(255,107,107,.25)",background:"rgba(220,50,50,.05)"}}>
+          <div className="card" key={h._id || h.id} style={{borderColor:"rgba(255,107,107,.25)",background:"rgba(220,50,50,.05)"}}>
             <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
               <span className="badge-verified badge-urgent" style={{fontSize:12}}>🚨 URGENT — AI Flagged</span>
               {h.training && <span className="badge-verified badge-training">Training Casualty</span>}
@@ -800,8 +784,32 @@ function DonateSection() {
   const [donType, setDonType] = useState("education");
   const [amount, setAmount] = useState(1000);
   const [customAmt, setCustomAmt] = useState("");
-  const [step, setStep] = useState(1);
+  const [donorName, setDonorName] = useState(""); // Backend integrated state
+  
   const chips = [500,1000,2500,5000,10000];
+
+  // API Integration Handler
+  const handleDonationSubmit = async () => {
+    try {
+      await fetch('http://localhost:5000/api/donations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          donor: donorName || "Anonymous",
+          amount: amount,
+          family: "General Fund", // Defaulting to general fund context
+          type: donType
+        })
+      });
+      
+      alert(`Jai Hind! ₹${amount} donated successfully.`);
+      window.location.reload(); 
+    } catch (error) {
+      console.error("Donation failed", error);
+      alert("Payment failed. Please try again.");
+    }
+  };
+
   return (
     <section className="section">
       <div className="section-tag">Secure Donation Portal</div>
@@ -838,7 +846,13 @@ function DonateSection() {
             value={customAmt}
             onChange={e => { setCustomAmt(e.target.value); setAmount(Number(e.target.value)||0); }}
           />
-          <input className="input-field mb-16" placeholder="Your name (optional)" />
+          {/* Linked donorName variable */}
+          <input 
+            className="input-field mb-16" 
+            placeholder="Your name (optional)" 
+            value={donorName} 
+            onChange={e => setDonorName(e.target.value)} 
+          />
           <input className="input-field mb-16" placeholder="Message to family (optional)" />
           <div className="card mb-16" style={{padding:"14px 18px"}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:6}}>
@@ -855,7 +869,8 @@ function DonateSection() {
               <span className="text-saffron">₹{amount.toLocaleString()}</span>
             </div>
           </div>
-          <button className="btn-primary" style={{width:"100%",justifyContent:"center",fontSize:16,padding:14}}>
+          {/* Linked submission trigger */}
+          <button className="btn-primary" onClick={handleDonationSubmit} style={{width:"100%",justifyContent:"center",fontSize:16,padding:14}}>
             🔒 Pay via Razorpay (Demo)
           </button>
           <p style={{fontSize:11,color:"var(--muted)",textAlign:"center",marginTop:10}}>
@@ -867,7 +882,7 @@ function DonateSection() {
   );
 }
 
-function TransparencySection() {
+function TransparencySection({ liveFeed }) {
   const bars = [
     {lbl:"UP",val:82,color:"var(--saffron)"},
     {lbl:"RJ",val:74,color:"var(--saffron)"},
@@ -907,21 +922,24 @@ function TransparencySection() {
             </div>
           ))}
         </div>
-        {/* Live feed */}
+        {/* Live feed dynamic integration */}
         <div className="card">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
             <p style={{fontSize:13,fontWeight:600}}>Live Donations</p>
             <span className="badge-verified" style={{fontSize:10}}>● LIVE</span>
           </div>
-          {LIVE_FEED.map((f,i) => (
-            <div className="feed-item" key={i}>
+          {liveFeed.map((f,i) => (
+            <div className="feed-item" key={f._id || i}>
               <div className={`feed-dot${f.type==="general"?"":" orange"}`} />
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:500}}>{f.donor} → ₹{f.amount.toLocaleString()}</div>
-                <div style={{fontSize:11,color:"var(--muted)"}}>{f.family} · {f.time}</div>
+                <div style={{fontSize:11,color:"var(--muted)"}}>
+                  {f.family} · {f.createdAt ? new Date(f.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : f.time}
+                </div>
               </div>
             </div>
           ))}
+          {liveFeed.length === 0 && <div style={{fontSize:12, color:"var(--muted)", marginTop:10}}>Awaiting live feed...</div>}
         </div>
       </div>
     </section>
@@ -990,7 +1008,7 @@ function AdminLogin({ onLogin }) {
   );
 }
 
-function AdminDashboard({ onLogout }) {
+function AdminDashboard({ onLogout, liveFeed, pendingApps }) {
   const [activeTab, setActiveTab] = useState("overview");
   const menu = [
     {id:"overview",icon:"📊",lbl:"Overview"},
@@ -1033,12 +1051,13 @@ function AdminDashboard({ onLogout }) {
             </div>
             <div className="card">
               <p style={{fontWeight:600,marginBottom:16}}>Recent Activity Log</p>
-              {LIVE_FEED.map((f,i) => (
-                <div className="feed-item" key={i}>
+              {liveFeed.map((f,i) => (
+                <div className="feed-item" key={f._id || i}>
                   <div className="feed-dot" />
-                  <div style={{fontSize:13}}>{f.donor} donated ₹{f.amount.toLocaleString()} to {f.family} · {f.time}</div>
+                  <div style={{fontSize:13}}>{f.donor} donated ₹{f.amount.toLocaleString()} to {f.family} · {f.createdAt ? new Date(f.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : f.time}</div>
                 </div>
               ))}
+              {liveFeed.length === 0 && <div style={{fontSize:13, color:"var(--muted)"}}>No recent activity found in database.</div>}
             </div>
           </>
         )}
@@ -1053,13 +1072,13 @@ function AdminDashboard({ onLogout }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {PENDING_VERIFICATIONS.map(v => (
-                    <tr key={v.id}>
-                      <td style={{color:"var(--saffron)",fontFamily:"monospace"}}>{v.id}</td>
+                  {pendingApps.map(v => (
+                    <tr key={v._id || v.id}>
+                      <td style={{color:"var(--saffron)",fontFamily:"monospace"}}>{v.applicationId || v.id}</td>
                       <td style={{fontWeight:500}}>{v.name}</td>
                       <td style={{color:"var(--muted)"}}>{v.type}</td>
                       <td>{v.state}</td>
-                      <td>{v.docs}</td>
+                      <td>{v.docsUploaded ? `${v.docsUploaded}/${v.totalDocs}` : v.docs}</td>
                       <td><span className={`status-pill status-${v.status}`}>{v.status.charAt(0).toUpperCase()+v.status.slice(1)}</span></td>
                       <td>
                         <button style={{background:"none",border:"1px solid var(--border)",color:"var(--white)",padding:"4px 12px",borderRadius:6,fontSize:12,cursor:"pointer"}}>
@@ -1070,6 +1089,7 @@ function AdminDashboard({ onLogout }) {
                   ))}
                 </tbody>
               </table>
+              {pendingApps.length === 0 && <div style={{padding:20, color:"var(--muted)"}}>No pending applications in database.</div>}
             </div>
           </>
         )}
@@ -1153,16 +1173,16 @@ function Footer({ setPage }) {
 }
 
 // ── Page Shell ─────────────────────────────────────────────────────────────
-function HomePage({ setPage }) {
+function HomePage({ setPage, heroes, liveFeed }) {
   return (
     <>
       <HeroSection setPage={setPage} />
       <div className="tricolor" />
       <StatsRow />
-      <FamiliesSection setPage={setPage} />
-      <EmergencySection setPage={setPage} />
+      <FamiliesSection setPage={setPage} heroes={heroes} />
+      <EmergencySection setPage={setPage} heroes={heroes} />
       <TrainingSection />
-      <TransparencySection />
+      <TransparencySection liveFeed={liveFeed} />
       <NGOSection />
     </>
   );
@@ -1329,11 +1349,44 @@ function VeerBot() {
   );
 }
 
-
+// ── Application Core ───────────────────────────────────────────────────────
 export default function App() {
   const [page, setPage] = useState("home");
   const [scrolled, setScrolled] = useState(false);
   const [theme, setTheme] = useState("dark");
+  
+  // Backend integrated data states
+  const [dbHeroes, setDbHeroes] = useState([]);
+  const [liveDonations, setLiveDonations] = useState([]);
+  const [pendingApps, setPendingApps] = useState([]);
+
+  // Fetch API data on load
+  useEffect(() => {
+    const fetchHeroes = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/heroes');
+        if(res.ok) setDbHeroes(await res.json());
+      } catch(e) { console.error("Heroes fetch failed", e); }
+    };
+    
+    const fetchDonations = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/donations/live');
+        if(res.ok) setLiveDonations(await res.json());
+      } catch(e) { console.error("Donations fetch failed", e); }
+    };
+
+    const fetchApps = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/admin/applications');
+        if(res.ok) setPendingApps(await res.json());
+      } catch(e) { console.error("Applications fetch failed", e); }
+    };
+
+    fetchHeroes();
+    fetchDonations();
+    fetchApps();
+  }, []);
 
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
@@ -1358,14 +1411,14 @@ export default function App() {
         <Navbar page={page} setPage={setPage} scrolled={scrolled} theme={theme} toggleTheme={toggleTheme} />
       )}
       <main style={{paddingTop: isAdmin ? 0 : 68}}>
-        {page === "home" && <HomePage setPage={setPage} />}
+        {page === "home" && <HomePage setPage={setPage} heroes={dbHeroes} liveFeed={liveDonations} />}
         {page === "families" && (
           <>
             <section style={{padding:"60px 5% 0"}} className="fade-up">
               <div className="section-tag">All Verified Families</div>
               <h1 className="section-title mb-32">Defense Families Registry</h1>
             </section>
-            <FamiliesSection setPage={setPage} />
+            <FamiliesSection setPage={setPage} heroes={dbHeroes} />
             <TrainingSection />
           </>
         )}
@@ -1378,9 +1431,9 @@ export default function App() {
             <DonateSection />
           </>
         )}
-        {page === "emergency" && <EmergencySection setPage={setPage} />}
+        {page === "emergency" && <EmergencySection setPage={setPage} heroes={dbHeroes} />}
         {page === "ngo_network" && <NGOSection />}
-        {page === "transparency" && <TransparencySection />}
+        {page === "transparency" && <TransparencySection liveFeed={liveDonations} />}
         {page === "mission" && (
           <section className="section fade-up" style={{maxWidth:700,margin:"0 auto",padding:"80px 5%"}}>
             <div className="section-tag">Our Mission</div>
@@ -1400,7 +1453,7 @@ export default function App() {
           </section>
         )}
         {page === "login" && <LoginPage setPage={setPage} />}
-        {page === "admin_dashboard" && <AdminDashboard onLogout={() => setPage("home")} />}
+        {page === "admin_dashboard" && <AdminDashboard onLogout={() => setPage("home")} liveFeed={liveDonations} pendingApps={pendingApps} />}
       </main>
       {!isAdmin && page !== "login" && <Footer setPage={setPage} />}
       {!isAdmin && <VeerBot />}
